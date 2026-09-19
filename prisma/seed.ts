@@ -1,7 +1,6 @@
 import path from "node:path";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/password";
+import { createPrismaClient } from "../src/lib/prisma-client";
 
 try {
   process.loadEnvFile(path.join(process.cwd(), ".env"));
@@ -9,8 +8,7 @@ try {
   // Fall back to the ambient environment.
 }
 
-const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
-const db = new PrismaClient({ adapter });
+const db = createPrismaClient();
 
 const PASSWORD = "hangar123";
 

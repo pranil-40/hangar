@@ -8,8 +8,7 @@
  * and interviewing is the strongest thing you can bring to that call.
  */
 import path from "node:path";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { PrismaClient } from "@prisma/client";
+import { createPrismaClient } from "../src/lib/prisma-client";
 
 try {
   process.loadEnvFile(path.join(process.cwd(), ".env"));
@@ -17,9 +16,7 @@ try {
   // Fall back to the ambient environment.
 }
 
-const db = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }),
-});
+const db = createPrismaClient();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
