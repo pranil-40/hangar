@@ -1,0 +1,28 @@
+node_modules
+.next
+out
+build
+dist
+
+.env
+.env*.local
+
+*.db
+*.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
+next-env.d.ts
+tsconfig.tsbuildinfo
+coverage
+
+# Local editor/agent settings. launch.json is shared deliberately.
+.claude/settings.local.json
+
+# Agent skills that arrived with the folder, unrelated to this project.
+.agents/
+skills-lock.json
