@@ -30,9 +30,11 @@
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "better-sqlite3": "^12.11.1",
     "next": "^16.3.5",
+    "pg": "^8.23.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zod": "^3.25.0"
