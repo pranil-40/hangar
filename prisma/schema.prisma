@@ -1,0 +1,121 @@
+// Hangar — data model
+//
+// Provider is SQLite so the project runs with zero external setup.
+// To move to Postgres (per the Week 1 stack decision):
+//   1. provider = "postgresql"
+//   2. DATABASE_URL = postgres://...
+//   3. npx prisma db push
+// No model changes are required. Role/platform are stored as strings
+// because SQLite has no enum type; the allowed values are enforced in
+// src/lib/permissions.ts and validated with Zod at every write.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7 takes the connection URL from prisma.config.ts (CLI) and from the
+// driver adapter in src/lib/db.ts (runtime), not from this block.
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  memberships Membership[]
+  createdApps App[]        @relation("AppCreatedBy")
+  views       AppView[]
+  sentInvites Invite[]     @relation("InviteCreatedBy")
+
+  @@index([email])
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  memberships Membership[]
+  apps        App[]
+  invites     Invite[]
+
+  @@index([slug])
+}
+
+/// A user's role within one team. role is one of OWNER | EDITOR | VIEWER.
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  role      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+/// An AI-built tool registered with a team. `url` is where the app already
+/// runs (Lovable, Replit, Bolt, ...). Hangar governs who may reach it.
+model App {
+  id          String   @id @default(cuid())
+  teamId      String
+  name        String
+  description String?
+  url         String
+  platform    String // LOVABLE | REPLIT | BOLT | V0 | BASE44 | OTHER
+  archived    Boolean  @default(false)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("AppCreatedBy", fields: [createdById], references: [id])
+  views     AppView[]
+
+  @@index([teamId])
+  @@index([teamId, archived])
+}
+
+/// Pending invitation to join a team at a given role.
+model Invite {
+  id          String    @id @default(cuid())
+  teamId      String
+  email       String
+  role        String
+  token       String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  team      Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy User @relation("InviteCreatedBy", fields: [createdById], references: [id])
+
+  @@index([teamId])
+  @@index([token])
+}
+
+/// One row per app open. This is the raw material for the single number
+/// the YC application asks for: weekly active teams.
+model AppView {
+  id       String   @id @default(cuid())
+  appId    String
+  userId   String
+  teamId   String
+  viewedAt DateTime @default(now())
+
+  app  App  @relation(fields: [appId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, viewedAt])
+  @@index([appId, viewedAt])
+}
