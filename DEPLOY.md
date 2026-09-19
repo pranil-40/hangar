@@ -14,6 +14,11 @@ SQLite is a file on your laptop, so it cannot be shared. Postgres can.
 1. Sign up at [neon.com](https://neon.com) and create a project.
 2. Copy the connection string. It looks like
    `postgresql://user:password@ep-something.aws.neon.tech/neondb?sslmode=require`.
+3. Change the end to **`sslmode=verify-full`**. Today `pg` treats `require`
+   as full certificate verification anyway, but a future major version will
+   reinterpret it as "encrypt without checking who you are talking to" —
+   a silent downgrade to a connection that can be intercepted. Being
+   explicit costs nothing and is immune to that change.
 
 Keep that string somewhere safe for the next steps. It is a password — do not
 paste it into the repo, a chat, or an issue.
