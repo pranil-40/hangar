@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Purchase requests</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Purchase requests</h1>
+          <p class="muted" id="who">Loading…</p>
+        </div>
+        <span class="pill" id="role"></span>
+      </header>
+
+      <form id="new-request" autocomplete="off">
+        <input name="title" placeholder="What do you need?" maxlength="120" required />
+        <input name="amount" type="number" min="1" step="1" placeholder="Amount ($)" required />
+        <button type="submit">Request</button>
+      </form>
+
+      <p class="error" id="error" hidden></p>
+      <ul id="list"></ul>
+      <p class="muted small" id="footnote"></p>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

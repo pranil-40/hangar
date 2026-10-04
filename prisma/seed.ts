@@ -1,3 +1,4 @@
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { hashPassword } from "../src/lib/password";
 import { createPrismaClient } from "../src/lib/prisma-client";
@@ -116,12 +117,72 @@ async function main() {
   }
   await db.appView.createMany({ data: views });
 
+  await seedHostedTool(team.id, users);
+
   console.log("\nDemo team ready: Acme Ops (/t/acme-ops)");
   console.log("Sign in with any of these — password is the same for all:\n");
   for (const person of PEOPLE) {
     console.log(`  ${person.role.padEnd(6)}  ${person.email}   ${PASSWORD}`);
   }
   console.log("");
+}
+
+/**
+ * One real hosted tool, deployed through the same code path an agent's
+ * deploy takes, so the demo shows the sandboxed runner with live storage.
+ * Imported lazily: those modules open their own database client, which
+ * needs the .env loaded above.
+ */
+async function seedHostedTool(teamId: string, users: { id: string; email: string | null }[]) {
+  const { deployTool } = await import("../src/lib/hosting/deploy");
+  const { can } = await import("../src/lib/permissions");
+  const { db: appDb } = await import("../src/lib/db");
+
+  const dir = path.join(process.cwd(), "examples", "purchase-requests");
+  const files = await Promise.all(
+    (await readdir(dir)).map(async (name) => ({
+      path: name,
+      data: (await readFile(path.join(dir, name))).toString("base64"),
+    })),
+  );
+
+  const [owner, editor, viewer] = users;
+  const result = await deployTool(
+    { userId: editor.id, teamId, can: (capability) => can("EDITOR", capability) },
+    {
+      name: "Purchase requests",
+      description: "Ask for something you need; an owner or editor approves it.",
+      files,
+      source: "SEED",
+      agent: "claude-code",
+    },
+  );
+  if (!result.ok) throw new Error(`Seeding the hosted tool failed: ${result.error}`);
+
+  const requests = [
+    { by: viewer, title: "Second monitor", amount: 240, approvedBy: null },
+    { by: editor, title: "Figma seat for the new designer", amount: 180, approvedBy: "Priya Raman" },
+    { by: owner, title: "Offsite venue deposit", amount: 1500, approvedBy: "Priya Raman" },
+  ];
+  const names: Record<string, string> = Object.fromEntries(PEOPLE.map((p) => [p.email, p.name]));
+  const nameOf = (user: { email: string | null }) => names[user.email ?? ""];
+  for (const request of requests) {
+    await appDb.toolRecord.create({
+      data: {
+        appId: result.app.id,
+        collection: "requests",
+        data: JSON.stringify({
+          title: request.title,
+          amount: request.amount,
+          requestedBy: nameOf(request.by),
+          ...(request.approvedBy ? { approvedBy: request.approvedBy } : {}),
+        }),
+        createdById: request.by.id,
+        updatedById: request.by.id,
+      },
+    });
+  }
+  await appDb.$disconnect();
 }
 
 main()

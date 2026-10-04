@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { getSessionUserId } from "@/lib/session";
 import { can, isRole, type Capability, type Role } from "@/lib/permissions";
 
-export type SessionUser = { id: string; email: string; name: string };
+/** email is null for crew members, who join from a personal link instead. */
+export type SessionUser = { id: string; email: string | null; name: string };
 
 export type TeamContext = {
   user: SessionUser;

@@ -5,8 +5,12 @@ export const PLATFORMS = [
   "V0",
   "BASE44",
   "OTHER",
+  "HANGAR",
 ] as const;
 export type Platform = (typeof PLATFORMS)[number];
+
+/** What someone can pick when adding a link. HANGAR is set only by a deploy. */
+export const LINK_PLATFORMS = PLATFORMS.filter((platform) => platform !== "HANGAR");
 
 export function isPlatform(value: unknown): value is Platform {
   return typeof value === "string" && (PLATFORMS as readonly string[]).includes(value);
@@ -21,6 +25,7 @@ export const PLATFORM_META: Record<Platform, PlatformMeta> = {
   V0: { label: "v0", hostPatterns: ["v0.dev", "vercel.app"], accent: "#8b8b8b" },
   BASE44: { label: "Base44", hostPatterns: ["base44.app"], accent: "#3b82f6" },
   OTHER: { label: "Other", hostPatterns: [], accent: "#64748b" },
+  HANGAR: { label: "Hosted", hostPatterns: [], accent: "#0f7b52" },
 };
 
 /** Best-effort guess so the person adding a tool rarely has to pick. */
@@ -32,7 +37,7 @@ export function detectPlatform(rawUrl: string): Platform {
     return "OTHER";
   }
 
-  for (const platform of PLATFORMS) {
+  for (const platform of LINK_PLATFORMS) {
     if (platform === "OTHER") continue;
     const { hostPatterns } = PLATFORM_META[platform];
     if (hostPatterns.some((pattern) => host === pattern || host.endsWith(`.${pattern}`))) {

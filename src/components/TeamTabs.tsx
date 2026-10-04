@@ -6,15 +6,18 @@ import { usePathname } from "next/navigation";
 export function TeamTabs({
   slug,
   canManageMembers,
+  canViewActivity,
 }: {
   slug: string;
   canManageMembers: boolean;
+  canViewActivity: boolean;
 }) {
   const pathname = usePathname();
 
   const tabs = [
     { href: `/t/${slug}`, label: "Tools", exact: true },
     { href: `/t/${slug}/members`, label: canManageMembers ? "Members" : "People", exact: false },
+    ...(canViewActivity ? [{ href: `/t/${slug}/activity`, label: "Activity", exact: false }] : []),
     { href: `/t/${slug}/settings`, label: "Settings", exact: false },
   ];
 

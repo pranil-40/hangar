@@ -1,3 +1,4 @@
+import { addCrewMemberAction, newDeviceLinkAction } from "@/app/actions/crew";
 import {
   changeRoleAction,
   inviteMemberAction,
@@ -8,6 +9,8 @@ import { db } from "@/lib/db";
 import { requireTeam } from "@/lib/guard";
 import { ROLE_LABELS, isRole } from "@/lib/permissions";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { CrewForm } from "./CrewForm";
+import { DeviceLinkButton } from "./DeviceLinkButton";
 import { InviteForm } from "./InviteForm";
 import { MemberRow } from "./MemberRow";
 
@@ -27,7 +30,7 @@ export default async function MembersPage({
       select: {
         id: true,
         role: true,
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, kind: true } },
       },
     }),
     can("member:invite")
@@ -43,7 +46,20 @@ export default async function MembersPage({
     <div style={{ maxWidth: 720 }}>
       {can("member:invite") && (
         <section style={{ marginBottom: "1.8rem" }}>
-          <h2 style={{ margin: "0 0 0.8rem", fontSize: "1.05rem" }}>Invite someone</h2>
+          <h2 style={{ margin: "0 0 0.3rem", fontSize: "1.05rem" }}>Add crew</h2>
+          <p className="muted" style={{ margin: "0 0 0.8rem", fontSize: "0.88rem" }}>
+            For staff without a work email. They get a personal link that signs their own phone
+            in, no account or password. Remove them here and their phone loses access at once.
+          </p>
+          <div className="card" style={{ padding: "1.2rem" }}>
+            <CrewForm action={addCrewMemberAction.bind(null, slug)} />
+          </div>
+        </section>
+      )}
+
+      {can("member:invite") && (
+        <section style={{ marginBottom: "1.8rem" }}>
+          <h2 style={{ margin: "0 0 0.8rem", fontSize: "1.05rem" }}>Invite by email</h2>
           <div className="card" style={{ padding: "1.2rem" }}>
             <InviteForm action={inviteMemberAction.bind(null, slug)} />
           </div>
@@ -61,11 +77,17 @@ export default async function MembersPage({
               <MemberRow
                 name={membership.user.name}
                 email={membership.user.email}
+                isCrew={membership.user.kind === "CREW"}
                 role={isRole(membership.role) ? membership.role : "VIEWER"}
                 isYou={membership.user.id === user.id}
                 canManage={canManage}
                 onChangeRole={changeRoleAction.bind(null, slug, membership.id)}
                 onRemove={removeMemberAction.bind(null, slug, membership.id)}
+                extra={
+                  can("member:invite") && membership.user.kind === "CREW" ? (
+                    <DeviceLinkButton action={newDeviceLinkAction.bind(null, slug, membership.user.id)} />
+                  ) : undefined
+                }
               />
             </div>
           ))}
@@ -73,7 +95,7 @@ export default async function MembersPage({
 
         {canManage && (
           <p className="hint">
-            A team always keeps at least one owner — the last one cannot be demoted or removed.
+            A team always keeps at least one owner. The last one cannot be demoted or removed.
           </p>
         )}
       </section>

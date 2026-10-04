@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { LIMITS, rateLimit } from "@/lib/rate-limit";
 import { createSession, destroySession } from "@/lib/session";
 
 export type FormState = { error?: string };
@@ -56,6 +57,12 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
     return { error: parsed.error.issues[0].message };
   }
 
+  // Per address, so guessing one account's password is slow without
+  // letting anyone lock everyone else out.
+  if (!rateLimit(`login:${parsed.data.email}`, LIMITS.login).ok) {
+    return { error: "Too many attempts for that email. Wait a few minutes and try again." };
+  }
+
   const user = await db.user.findUnique({
     where: { email: parsed.data.email },
     select: { id: true, passwordHash: true },
@@ -64,7 +71,8 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
   // Same message either way — a different one for "no such account" would
   // let anyone test which emails are registered.
   const invalid = { error: "That email and password do not match." };
-  if (!user) return invalid;
+  // Crew members and Google-only accounts have no password to check.
+  if (!user || !user.passwordHash) return invalid;
   if (!(await verifyPassword(parsed.data.password, user.passwordHash))) return invalid;
 
   await createSession(user.id);

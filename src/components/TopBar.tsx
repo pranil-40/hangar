@@ -28,7 +28,7 @@ export function TopBar({ user }: { user: SessionUser }) {
         <div style={{ flex: 1 }} />
 
         <span className="subtle" style={{ fontSize: "0.82rem" }}>
-          {user.email}
+          {user.email ?? user.name}
         </span>
 
         <form action={logoutAction}>

@@ -29,6 +29,10 @@ describe("role matrix", () => {
       "app:edit",
       "app:archive",
       "app:delete",
+      "token:create",
+      "token:revoke_any",
+      "audit:view",
+      "connector:manage",
     ];
     for (const capability of writes) {
       expect(can("VIEWER", capability)).toBe(false);
@@ -46,6 +50,17 @@ describe("role matrix", () => {
     expect(can("EDITOR", "team:delete")).toBe(false);
     // Deleting is owner-only; an editor archives instead.
     expect(can("EDITOR", "app:delete")).toBe(false);
+  });
+
+  it("lets an editor's agent deploy, but keeps oversight with owners", () => {
+    expect(can("EDITOR", "token:create")).toBe(true);
+    expect(can("EDITOR", "token:revoke_any")).toBe(false);
+    expect(can("EDITOR", "audit:view")).toBe(false);
+    expect(can("OWNER", "token:revoke_any")).toBe(true);
+    expect(can("OWNER", "audit:view")).toBe(true);
+    // Connecting company data and approving queries against it is owner-only.
+    expect(can("EDITOR", "connector:manage")).toBe(false);
+    expect(can("OWNER", "connector:manage")).toBe(true);
   });
 
   it("gives an owner every capability", () => {

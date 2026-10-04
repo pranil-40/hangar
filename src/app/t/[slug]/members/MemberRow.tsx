@@ -6,19 +6,23 @@ import { ROLES, ROLE_LABELS, type Role } from "@/lib/permissions";
 export function MemberRow({
   name,
   email,
+  isCrew,
   role,
   isYou,
   canManage,
   onChangeRole,
   onRemove,
+  extra,
 }: {
   name: string;
-  email: string;
+  email: string | null;
+  isCrew: boolean;
   role: Role;
   isYou: boolean;
   canManage: boolean;
   onChangeRole: (nextRole: string) => Promise<void>;
   onRemove: () => Promise<void>;
+  extra?: React.ReactNode;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -57,7 +61,7 @@ export function MemberRow({
           )}
         </div>
         <div className="subtle" style={{ fontSize: "0.8rem" }}>
-          {email}
+          {isCrew ? "Crew · signs in from a join link, no email" : email}
         </div>
       </div>
 
@@ -73,7 +77,7 @@ export function MemberRow({
               run(() => onChangeRole(next));
             }}
           >
-            {ROLES.map((value) => (
+            {ROLES.filter((value) => !isCrew || value !== "OWNER").map((value) => (
               <option key={value} value={value}>
                 {ROLE_LABELS[value]}
               </option>
@@ -93,6 +97,7 @@ export function MemberRow({
       ) : (
         <span className="badge">{ROLE_LABELS[role]}</span>
       )}
+      {extra}
     </div>
   );
 }

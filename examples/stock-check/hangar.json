@@ -1,0 +1,13 @@
+{
+  "strict": true,
+  "collections": {
+    "counts": { "update": "author", "delete": "editor" }
+  },
+  "connectors": {
+    "stock-db": {
+      "queries": {
+        "lowStock": "select sku, item, on_hand, par from stock where location = $1 and on_hand < par order by on_hand::float / nullif(par, 0) limit 50"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "strict": true,
+  "collections": {
+    "requests": { "update": "nobody", "delete": "editor" },
+    "approvals": { "create": "editor", "update": "nobody", "delete": "owner" }
+  }
+}

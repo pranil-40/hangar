@@ -1,15 +1,14 @@
 import type { Platform } from "@/lib/platforms";
 
 /**
- * The seam for how a tool actually runs.
+ * How a LINK tool is shown: one that runs at someone else's URL (Lovable,
+ * Replit, Bolt). Hangar can only frame it, so access to it is as open as
+ * that URL is, and the tool page says so.
  *
- * v1 ships `hostedEmbed`: tools built on Lovable/Replit/Bolt already run at
- * a URL, so Hangar's job is deciding who may reach it — not executing code.
- * That removes e2b/Modal from the critical path for the pilot.
- *
- * When Hangar starts holding source rather than links, add a provider that
- * boots a sandbox and returns its URL from `resolve()`. Nothing above this
- * interface should need to change.
+ * HOSTED tools do not come through here. Their files live in Hangar and are
+ * served by /run/<appId> under the sandbox in src/lib/hosting/runtime.ts.
+ * When tools need server-side code, that is a second runtime next to the
+ * static one, not a change to this file.
  */
 
 export type RuntimeTarget = {

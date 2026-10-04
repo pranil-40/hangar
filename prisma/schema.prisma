@@ -20,30 +20,45 @@ datasource db {
   provider = "postgresql"
 }
 
+/// kind is ACCOUNT (signs in with email and password, or Google) or CREW
+/// (frontline staff who join from a personal link and have no email or
+/// password at all; see CrewLink).
 model User {
   id           String   @id @default(cuid())
-  email        String   @unique
+  email        String?  @unique
   name         String
-  passwordHash String
+  passwordHash String?
+  kind         String   @default("ACCOUNT")
+  googleSub    String?  @unique
   createdAt    DateTime @default(now())
 
-  memberships Membership[]
-  createdApps App[]        @relation("AppCreatedBy")
-  views       AppView[]
-  sentInvites Invite[]     @relation("InviteCreatedBy")
+  memberships  Membership[]
+  createdApps  App[]         @relation("AppCreatedBy")
+  views        AppView[]
+  sentInvites  Invite[]      @relation("InviteCreatedBy")
+  deployments  Deployment[]
+  deployTokens DeployToken[]
+  crewLinks    CrewLink[]    @relation("CrewLinkUser")
 
   @@index([email])
 }
 
 model Team {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  /// Anyone signing in with a verified Google Workspace account on this
+  /// domain joins as a viewer. Only an owner on that domain can set it.
+  autoJoinDomain String?
+  createdAt      DateTime @default(now())
 
-  memberships Membership[]
-  apps        App[]
-  invites     Invite[]
+  memberships  Membership[]
+  apps         App[]
+  invites      Invite[]
+  deployTokens DeployToken[]
+  auditEvents  AuditEvent[]
+  crewLinks    CrewLink[]
+  connectors   Connector[]
 
   @@index([slug])
 }
@@ -64,26 +79,136 @@ model Membership {
   @@index([userId])
 }
 
-/// An AI-built tool registered with a team. `url` is where the app already
-/// runs (Lovable, Replit, Bolt, ...). Hangar governs who may reach it.
+/// An AI-built tool that belongs to a team.
+///
+/// kind is HOSTED or LINK. A HOSTED tool's files live in Hangar (see
+/// Deployment) and are only served to signed-in members, so access control
+/// actually holds. A LINK tool is a URL that runs somewhere else; Hangar can
+/// list it, but anyone who has the original URL can still open it, and the
+/// UI says so.
 model App {
-  id          String   @id @default(cuid())
-  teamId      String
-  name        String
-  description String?
-  url         String
-  platform    String // LOVABLE | REPLIT | BOLT | V0 | BASE44 | OTHER
-  archived    Boolean  @default(false)
-  createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  teamId             String
+  name               String
+  description        String?
+  kind               String   @default("LINK") // HOSTED | LINK
+  url                String? // LINK only
+  platform           String // LOVABLE | REPLIT | BOLT | V0 | BASE44 | OTHER | HANGAR
+  archived           Boolean  @default(false)
+  activeDeploymentId String?  @unique
+  createdById        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdBy User      @relation("AppCreatedBy", fields: [createdById], references: [id])
-  views     AppView[]
+  team             Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy        User             @relation("AppCreatedBy", fields: [createdById], references: [id])
+  views            AppView[]
+  deployments      Deployment[]     @relation("AppDeployments")
+  activeDeployment Deployment?      @relation("ActiveDeployment", fields: [activeDeploymentId], references: [id], onDelete: SetNull)
+  records          ToolRecord[]
+  connectorGrants  ConnectorGrant[]
 
   @@index([teamId])
   @@index([teamId, archived])
+}
+
+/// One immutable upload of a HOSTED tool. Rolling back means pointing
+/// App.activeDeploymentId at an older row; nothing is ever rewritten.
+///
+/// Files are served only while their deployment is the live one: the entry
+/// HTML at /run/<appId> to a signed-in member, everything else under a
+/// per-viewer, expiring ticket (see src/lib/tickets.ts). A redeploy retires
+/// every ticket for the previous version.
+model Deployment {
+  id          String   @id @default(cuid())
+  appId       String
+  version     Int
+  entry       String   @default("index.html")
+  fileCount   Int
+  totalBytes  Int
+  source      String // CLI | MCP | UPLOAD | SEED
+  agent       String? // e.g. "claude-code", reported by the client
+  /// The validated hangar.json (collection rules, connector queries), as JSON.
+  manifest    String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  app       App              @relation("AppDeployments", fields: [appId], references: [id], onDelete: Cascade)
+  activeFor App?             @relation("ActiveDeployment")
+  createdBy User             @relation(fields: [createdById], references: [id])
+  files     DeploymentFile[]
+
+  @@unique([appId, version])
+  @@index([appId, createdAt])
+}
+
+model DeploymentFile {
+  id           String @id @default(cuid())
+  deploymentId String
+  path         String
+  contentType  String
+  size         Int
+  sha256       String
+  content      Bytes
+
+  deployment Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@unique([deploymentId, path])
+}
+
+/// What a coding agent (or a person's terminal) uses to deploy into one
+/// team. Only the SHA-256 of the token is stored; the token itself is shown
+/// once. A token can never do more than the person who created it can do
+/// right now, because every use re-checks their current membership.
+model DeployToken {
+  id         String    @id @default(cuid())
+  teamId     String
+  userId     String
+  name       String
+  prefix     String
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+}
+
+/// A tool's saved state, written through the tool data API with the
+/// viewer's identity attached. Tools never receive database credentials;
+/// this table is the only storage they can reach.
+model ToolRecord {
+  id          String   @id @default(cuid())
+  appId       String
+  collection  String
+  data        String // JSON
+  createdById String
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId, collection, createdAt])
+}
+
+/// Append-only record of who changed what. Owners read it on the Activity
+/// tab; it is what an IT lead asks for before letting a team deploy.
+model AuditEvent {
+  id        String   @id @default(cuid())
+  teamId    String
+  actorId   String?
+  action    String
+  targetId  String?
+  detail    String? // JSON
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, createdAt])
 }
 
 /// Pending invitation to join a team at a given role.
@@ -119,4 +244,79 @@ model AppView {
 
   @@index([teamId, viewedAt])
   @@index([appId, viewedAt])
+}
+
+/// A personal, single-use link that signs one phone in as a crew member.
+/// Only the SHA-256 of the token is stored. userId is set for a new-device
+/// link for someone who already joined, so their history stays theirs.
+model CrewLink {
+  id          String    @id @default(cuid())
+  teamId      String
+  name        String
+  role        String
+  tokenHash   String    @unique
+  userId      String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  team Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User? @relation("CrewLinkUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+}
+
+/// A company database a team's tools may query through Hangar. The
+/// connection URL is sealed (AES-256-GCM) and never sent to a tool.
+model Connector {
+  id          String   @id @default(cuid())
+  teamId      String
+  name        String
+  slug        String
+  kind        String   @default("POSTGRES")
+  secret      String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  team   Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  grants ConnectorGrant[]
+  calls  ConnectorCall[]
+
+  @@unique([teamId, slug])
+}
+
+/// An owner's approval for one tool to run a specific set of queries on a
+/// connector. queriesHash pins the approval to the exact SQL: a deploy that
+/// changes a query needs a fresh approval.
+model ConnectorGrant {
+  id           String   @id @default(cuid())
+  connectorId  String
+  appId        String
+  queriesHash  String
+  approvedById String
+  approvedAt   DateTime @default(now())
+
+  connector Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  app       App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([connectorId, appId])
+}
+
+/// One row per query a tool ran, with who ran it.
+model ConnectorCall {
+  id          String   @id @default(cuid())
+  connectorId String
+  appId       String
+  userId      String
+  query       String
+  ok          Boolean
+  rows        Int
+  ms          Int
+  createdAt   DateTime @default(now())
+
+  connector Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  @@index([appId, createdAt])
+  @@index([connectorId, createdAt])
 }
