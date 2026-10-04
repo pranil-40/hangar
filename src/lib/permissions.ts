@@ -32,6 +32,12 @@ export const CAPABILITIES = [
   "app:edit",
   "app:archive",
   "app:delete",
+  // Agents and audit
+  "token:create",
+  "token:revoke_any",
+  "audit:view",
+  // Company data
+  "connector:manage",
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
@@ -42,6 +48,7 @@ const EDITOR_CAPS: Capability[] = [
   "app:create",
   "app:edit",
   "app:archive",
+  "token:create",
 ];
 
 const OWNER_CAPS: Capability[] = [
@@ -52,6 +59,9 @@ const OWNER_CAPS: Capability[] = [
   "member:remove",
   "member:change_role",
   "app:delete",
+  "token:revoke_any",
+  "audit:view",
+  "connector:manage",
 ];
 
 const MATRIX: Record<Role, ReadonlySet<Capability>> = {
@@ -67,6 +77,27 @@ export function can(role: Role, capability: Capability): boolean {
 export function capabilitiesFor(role: Role): Capability[] {
   return [...MATRIX[role]];
 }
+
+/** Plain-language names for the permission table on the Settings page. */
+export const CAPABILITY_LABELS: Record<Capability, string> = {
+  "team:view": "See the team",
+  "team:rename": "Rename the team",
+  "team:delete": "Delete the team",
+  "member:list": "See who is on the team",
+  "member:invite": "Add people and crew",
+  "member:remove": "Remove people",
+  "member:change_role": "Change someone's role",
+  "app:view": "See the tools",
+  "app:run": "Open and use tools",
+  "app:create": "Deploy new tools",
+  "app:edit": "Redeploy, edit and roll back tools",
+  "app:archive": "Archive tools",
+  "app:delete": "Delete tools",
+  "token:create": "Create deploy tokens for their agent",
+  "token:revoke_any": "Revoke anyone's deploy token",
+  "audit:view": "See the activity log",
+  "connector:manage": "Connect databases and approve tool queries",
+};
 
 export const ROLE_LABELS: Record<Role, string> = {
   OWNER: "Owner",

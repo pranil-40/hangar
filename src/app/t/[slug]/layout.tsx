@@ -38,7 +38,11 @@ export default async function TeamLayout({
             <span className="badge badge-accent">{ROLE_LABELS[role]}</span>
           </div>
 
-          <TeamTabs slug={slug} canManageMembers={can("member:invite")} />
+          <TeamTabs
+            slug={slug}
+            canManageMembers={can("member:invite")}
+            canViewActivity={can("audit:view")}
+          />
         </div>
       </div>
 

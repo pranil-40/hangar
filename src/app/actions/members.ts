@@ -4,9 +4,11 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { requireCapability, requireUser } from "@/lib/guard";
 import { isRole, wouldOrphanTeam, type Role } from "@/lib/permissions";
+import { appUrl } from "@/lib/urls";
 
 export type FormState = { error?: string; notice?: string };
 
@@ -48,13 +50,18 @@ export async function inviteMemberAction(
     data: { teamId: team.id, email, role, token, expiresAt, createdById: user.id },
   });
 
+  await audit({
+    teamId: team.id,
+    actorId: user.id,
+    action: "member.invite",
+    detail: { email, role },
+  });
+
   revalidatePath(`/t/${slug}/members`);
 
   // No email is sent yet — the owner copies the link. Wiring a mail provider
   // is a deliberate later step; hand-onboarding pilots does not need it.
-  return {
-    notice: `${process.env.APP_URL ?? "http://localhost:3000"}/invite/${token}`,
-  };
+  return { notice: appUrl(`/invite/${token}`) };
 }
 
 export async function revokeInviteAction(slug: string, inviteId: string): Promise<void> {
@@ -68,10 +75,26 @@ export async function changeRoleAction(
   membershipId: string,
   nextRole: string,
 ): Promise<void> {
-  const { team } = await requireCapability(slug, "member:change_role");
+  const { team, user } = await requireCapability(slug, "member:change_role");
   if (!isRole(nextRole)) throw new Error("Unknown role.");
 
-  await applyMembershipChange(team.id, membershipId, nextRole);
+  // Crew sign in from one phone with no email or password; an owner must
+  // be able to get back in, so crew top out at editor.
+  if (nextRole === "OWNER") {
+    const target = await db.membership.findFirst({
+      where: { id: membershipId, teamId: team.id },
+      select: { user: { select: { kind: true } } },
+    });
+    if (target?.user.kind === "CREW") throw new Error("Crew members can be editors at most. Invite them by email to make them an owner.");
+  }
+
+  const name = await applyMembershipChange(team.id, membershipId, nextRole);
+  await audit({
+    teamId: team.id,
+    actorId: user.id,
+    action: "member.role",
+    detail: { name, role: nextRole },
+  });
   revalidatePath(`/t/${slug}/members`);
 }
 
@@ -79,23 +102,25 @@ export async function removeMemberAction(
   slug: string,
   membershipId: string,
 ): Promise<void> {
-  const { team } = await requireCapability(slug, "member:remove");
-  await applyMembershipChange(team.id, membershipId, null);
+  const { team, user } = await requireCapability(slug, "member:remove");
+  const name = await applyMembershipChange(team.id, membershipId, null);
+  await audit({ teamId: team.id, actorId: user.id, action: "member.remove", detail: { name } });
   revalidatePath(`/t/${slug}/members`);
 }
 
 /**
  * Shared last-owner check. Demoting or removing the final owner would leave
  * the team with nobody able to manage it, so both paths run through here.
+ * Returns the affected person's name for the activity log.
  */
 async function applyMembershipChange(
   teamId: string,
   membershipId: string,
   nextRole: Role | null,
-): Promise<void> {
+): Promise<string> {
   const memberships = await db.membership.findMany({
     where: { teamId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, user: { select: { name: true } } },
     orderBy: { createdAt: "asc" },
   });
 
@@ -112,6 +137,7 @@ async function applyMembershipChange(
   } else {
     await db.membership.update({ where: { id: membershipId }, data: { role: nextRole } });
   }
+  return memberships[index].user.name;
 }
 
 export async function acceptInviteAction(token: string): Promise<void> {

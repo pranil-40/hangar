@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { SubmitButton } from "@/components/SubmitButton";
-import { PLATFORMS, PLATFORM_META, detectPlatform } from "@/lib/platforms";
+import { LINK_PLATFORMS, PLATFORM_META, detectPlatform } from "@/lib/platforms";
 
 type State = { error?: string };
 
@@ -93,7 +93,7 @@ export function AppForm({
             setPlatformTouched(true);
           }}
         >
-          {PLATFORMS.map((value) => (
+          {LINK_PLATFORMS.map((value) => (
             <option key={value} value={value}>
               {PLATFORM_META[value].label}
             </option>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stock check</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Stock check</h1>
+          <p class="muted" id="who">Loading…</p>
+        </div>
+        <span class="pill">Downtown</span>
+      </header>
+
+      <h2 style="font-size: 1rem; margin: 22px 0 8px">Below par right now</h2>
+      <p class="muted small" id="source" style="margin-top: 0"></p>
+      <ul id="low"></ul>
+
+      <h2 style="font-size: 1rem; margin: 26px 0 8px">Log a count</h2>
+      <form id="count" autocomplete="off">
+        <input name="item" placeholder="Item (e.g. oat milk)" maxlength="80" required />
+        <input name="qty" type="number" min="0" step="1" placeholder="On shelf" required />
+        <button type="submit">Save</button>
+      </form>
+      <p class="error" id="error" hidden></p>
+      <ul id="counts"></ul>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

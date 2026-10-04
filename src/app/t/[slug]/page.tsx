@@ -29,6 +29,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
         id: true,
         name: true,
         description: true,
+        kind: true,
         platform: true,
         updatedAt: true,
         createdBy: { select: { name: true } },
@@ -71,7 +72,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
           <p style={{ margin: "0 0 0.4rem", fontWeight: 600 }}>Nothing here yet</p>
           <p className="muted" style={{ margin: "0 0 1.2rem", fontSize: "0.9rem" }}>
             {can("app:create")
-              ? "Add the link to a tool your team already built. Everyone you invite will be able to open it."
+              ? "Ask your coding agent to deploy a tool here, or add a link to one your team already built."
               : "An owner or editor hasn't added any tools yet."}
           </p>
           {can("app:create") && (
@@ -139,7 +140,13 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                     gap: "0.5rem",
                   }}
                 >
-                  <span className="badge">{meta.label}</span>
+                  {app.kind === "HOSTED" ? (
+                    <span className="badge badge-success">Hosted</span>
+                  ) : (
+                    <span className="badge badge-warn" title="Anyone with the original link can open it">
+                      {meta.label} link
+                    </span>
+                  )}
                   <span className="subtle" style={{ fontSize: "0.76rem" }}>
                     added by {app.createdBy.name.split(" ")[0]}
                   </span>

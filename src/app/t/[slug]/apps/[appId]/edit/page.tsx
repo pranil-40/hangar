@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { updateAppAction } from "@/app/actions/apps";
+import { updateAppAction, updateHostedAppAction } from "@/app/actions/apps";
 import { db } from "@/lib/db";
 import { requireTeam } from "@/lib/guard";
 import { AppForm } from "@/components/AppForm";
+import { HostedAppForm } from "@/components/HostedAppForm";
 import { NoAccess } from "@/components/NoAccess";
 
 export default async function EditAppPage({
@@ -22,7 +23,7 @@ export default async function EditAppPage({
 
   const app = await db.app.findFirst({
     where: { id: appId, teamId: team.id },
-    select: { name: true, description: true, url: true, platform: true },
+    select: { name: true, description: true, kind: true, url: true, platform: true },
   });
   if (!app) notFound();
 
@@ -37,11 +38,23 @@ export default async function EditAppPage({
       </h2>
 
       <div className="card" style={{ padding: "1.4rem" }}>
-        <AppForm
-          action={updateAppAction.bind(null, slug, appId)}
-          defaults={app}
-          submitLabel="Save changes"
-        />
+        {app.kind === "HOSTED" ? (
+          <HostedAppForm
+            action={updateHostedAppAction.bind(null, slug, appId)}
+            defaults={{ name: app.name, description: app.description }}
+          />
+        ) : (
+          <AppForm
+            action={updateAppAction.bind(null, slug, appId)}
+            defaults={{
+              name: app.name,
+              description: app.description,
+              url: app.url ?? "",
+              platform: app.platform,
+            }}
+            submitLabel="Save changes"
+          />
+        )}
       </div>
     </div>
   );

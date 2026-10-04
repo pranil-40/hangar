@@ -1,22 +1,14 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { rootSecret } from "@/lib/secret";
 
 const COOKIE_NAME = "hangar_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
-function secret(): string {
-  const value = process.env.SESSION_SECRET;
-  if (!value) {
-    throw new Error("SESSION_SECRET is not set. Copy .env.example to .env.");
-  }
-  if (process.env.NODE_ENV === "production" && value.startsWith("dev-only")) {
-    throw new Error("Refusing to start in production with the example SESSION_SECRET.");
-  }
-  return value;
-}
-
+// Sessions sign with the root secret directly, as they always have, so
+// existing cookies stay valid. Every newer token type uses derivedKey().
 function sign(payload: string): string {
-  return createHmac("sha256", secret()).update(payload).digest("base64url");
+  return createHmac("sha256", rootSecret()).update(payload).digest("base64url");
 }
 
 /** Token format: base64url({userId, exp, nonce}).signature */

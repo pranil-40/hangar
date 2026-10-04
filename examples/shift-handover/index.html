@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shift handover</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Shift handover</h1>
+          <p class="muted" id="who">Loading…</p>
+        </div>
+      </header>
+
+      <form id="note" autocomplete="off">
+        <input name="text" placeholder="What does the next shift need to know?" maxlength="280" required />
+        <button type="submit">Post</button>
+      </form>
+      <p class="error" id="error" hidden></p>
+      <ul id="notes"></ul>
+    </main>
+    <script>
+      // Everything this tool needs comes from window.hangar: who is posting,
+      // and a shared "notes" collection everyone on the team can read.
+      const hangar = window.hangar;
+      const notes = hangar.collection("notes");
+      const $ = (id) => document.getElementById(id);
+      $("who").textContent = `Signed in as ${hangar.user.name}`;
+
+      async function load() {
+        const rows = await notes.list();
+        $("notes").replaceChildren(
+          ...rows.slice(0, 30).map((note) => {
+            const li = document.createElement("li");
+            const div = document.createElement("div");
+            div.textContent = note.data.text;
+            const meta = document.createElement("div");
+            meta.className = "meta";
+            meta.textContent = `${note.createdBy.name} · ${new Date(note.createdAt).toLocaleString()}`;
+            div.append(meta);
+            li.append(div);
+            return li;
+          }),
+        );
+      }
+
+      $("note").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        notes
+          .add({ text: String(new FormData(form).get("text")).trim() })
+          .then(() => { form.reset(); $("error").hidden = true; return load(); })
+          .catch((error) => { $("error").hidden = false; $("error").textContent = error.message; });
+      });
+
+      load();
+    </script>
+  </body>
+</html>

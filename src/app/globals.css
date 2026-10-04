@@ -21,6 +21,8 @@
   --danger-soft: #fdecea;
   --success: #0f7b52;
   --success-soft: #e6f4ee;
+  --warn: #9a6700;
+  --warn-soft: #fff6e0;
   --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 12px rgb(16 24 40 / 0.06);
 }
 
@@ -41,6 +43,8 @@
     --danger-soft: #2d1a1a;
     --success: #4ade9f;
     --success-soft: #12251d;
+    --warn: #e3b341;
+    --warn-soft: #2a2310;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
   }
 }
@@ -197,4 +201,38 @@ a {
 
 .subtle {
   color: var(--text-subtle);
+}
+
+.badge-success {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 25%, transparent);
+}
+
+.badge-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+}
+
+.alert-warn {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: var(--warn-soft);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  font-size: 0.86rem;
+}
+
+.code-block {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  overflow-x: auto;
+  white-space: pre;
 }
